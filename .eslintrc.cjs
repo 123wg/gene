@@ -11,7 +11,8 @@ module.exports = {
         }
     ],
     rules: {
-        indent: ['error', 4]
+        indent: ['error', 4],
+        'vue/comment-directive': 0
     },
     parserOptions: {
         ecmaVersion: 'latest'
