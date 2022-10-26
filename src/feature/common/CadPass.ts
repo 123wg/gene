@@ -38,6 +38,9 @@ export class CadPass extends Pass {
     fsQuad: FullScreenQuad // 全屏渲染
     copyUniforms: any
     materialCopy: any
+    oldClearColor: Color
+    oldClearAlpha: any
+    oldAutoClear: any
     constructor(resolution: vec2Type, transparent: boolean = false, colored: boolean = true, visibleEdge: boolean = true, hiddenEdge: boolean = false) {
         super()
         this.enabled = true
@@ -45,6 +48,7 @@ export class CadPass extends Pass {
         this.resolution = resolution ? new Vector2(resolution.x, resolution.y) : new Vector2(256, 256)
         this.textureMatrix = new Matrix4()
         this.fsQuad = new FullScreenQuad(null)
+        this.oldClearColor = new Color()
 
         // 渲染的四个参数 默认透明和不可见边关闭
         this.transparent = transparent //false
@@ -135,7 +139,6 @@ export class CadPass extends Pass {
         // FIXME 渲染线条 暂时注释
         this.changeVisible('LineSegments', true)
         this.tEdgeMaterial.uniforms['cameraNearFar'].value.set(this.renderCamera.near, this.renderCamera.far)
-
         this.tEdgeMaterial.uniforms['topoTexture'].value = this.topoBuffer.texture
         this.tEdgeMaterial.uniforms['depthTexture'].value = this.singleBuffer.texture
         this.tEdgeMaterial.uniforms['textureMatrix'].value = this.textureMatrix
@@ -191,7 +194,6 @@ export class CadPass extends Pass {
                 topoTexture: { value: null },
                 textureMatrix: { value: null },
                 depthTexture: { value: null },
-                tEdgeMaterial: { value: null },
                 param: {
                     value: {
                         x: this.transparent,
@@ -223,14 +225,26 @@ export class CadPass extends Pass {
 
     // 渲染
     render(renderer: WebGLRenderer) {
+        this.setOldData(renderer)
         this.renderTopo(renderer)
-        this.renderBackSide(renderer)
+        // this.renderBackSide(renderer)
         this.renderEdge(renderer)
         this.resetOldData(renderer)
     }
 
+    setOldData(renderer: WebGLRenderer) {
+        renderer.getClearColor(this.oldClearColor)
+        this.oldClearAlpha = renderer.getClearAlpha()
+        this.oldAutoClear = renderer.autoClear
+        renderer.autoClear = false
+        renderer.setClearColor(0xffffff, 1)
+        renderer.clear()
+    }
+
     // 输出结果
     resetOldData(renderer: WebGLRenderer) {
+        renderer.setClearColor(this.oldClearColor, this.oldClearAlpha)
+        renderer.autoClear = this.oldAutoClear
         this.copyUniforms['tDiffuse'].value = this.topoBuffer.texture
         this.renderWithFs(renderer, null, this.materialCopy)
     }
