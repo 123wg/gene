@@ -1,3 +1,4 @@
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 /**
  * @Description: 场景类
  * @Author: wanggang
@@ -6,8 +7,10 @@
 
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
-import { Color, DirectionalLight, MOUSE, OrthographicCamera, Scene, Vector3, WebGLRenderer } from 'three'
+import { BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { CadPass } from './CadPass'
+import { Vector2 } from 'three'
 export class View implements IView {
     scene!: Scene
 
@@ -18,6 +21,11 @@ export class View implements IView {
     renderer!: WebGLRenderer
 
     light!: DirectionalLight
+    test_mesh: Mesh
+    edge_line: LineSegments
+
+    composer: EffectComposer // 后期处理管理器
+    cadPass: CadPass
 
     constructor() {
         this._init()
@@ -43,6 +51,29 @@ export class View implements IView {
         this._render()
         this._init_control()
         this._on_resize()
+        this.create_mesh()
+        this.init_composer()
+    }
+
+    // 创建mesh
+    create_mesh() {
+        const box = new BoxGeometry(20, 20, 20)
+        const material = new MeshStandardMaterial({
+            color: '#0fffa0',
+            side: 2
+        })
+        this.test_mesh = new Mesh(box, material)
+        this.scene.add(this.test_mesh)
+
+        // 添加边缘线
+        const edge = new EdgesGeometry(box)
+        const edge_material = new LineBasicMaterial({
+            color: '#000000'
+        })
+        this.edge_line = new LineSegments(edge, edge_material)
+        this.scene.add(this.edge_line)
+
+        console.log(this.edge_line)
     }
 
     _init_scene(): void {
@@ -94,9 +125,22 @@ export class View implements IView {
         this.dom.appendChild(this.renderer.domElement)
     }
 
+    // 初始化后处理
+    init_composer() {
+        this.composer = new EffectComposer(this.renderer)
+        const { width, height } = this.size
+        this.cadPass = new CadPass(new Vector2(width, height))
+        this.composer.addPass(this.cadPass)
+        this.cadPass.setScene(this)
+    }
+
     _render(): void {
         if (this.controls) this.controls.update()
-        this.renderer.render(this.scene, this.camera)
+        if (this.composer) {
+            this.composer.render()
+        } else {
+            this.renderer.render(this.scene, this.camera)
+        }
         requestAnimationFrame(this._render.bind(this))
     }
 
