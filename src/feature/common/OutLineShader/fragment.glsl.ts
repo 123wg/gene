@@ -6,12 +6,12 @@ export const outLineFragmentShader = `
 
     uniform vec3 outlineColor;
     uniform float outlineAlpha;
-
+    
     void main() {
         #include <clipping_planes_fragment>
         #include <logdepthbuf_fragment>
 
-        gl_FragColor = vec4(outlineColor, outlineAlpha);
+        gl_FragColor = vec4( outlineColor, outlineAlpha );
 
         #include <tonemapping_fragment>
         #include <encodings_fragment>

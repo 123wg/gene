@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
-import { BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, Vector3, WebGLRenderer } from 'three'
+import { BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
@@ -57,6 +57,7 @@ export class View implements IView {
 
     // 创建mesh
     create_mesh() {
+        // const box = new TorusKnotGeometry(8, 3, 256, 32, 2, 3)
         const box = new BoxGeometry(20, 20, 20)
         const material = new MeshStandardMaterial({
             color: '#0fffa0',
@@ -65,15 +66,16 @@ export class View implements IView {
         this.test_mesh = new Mesh(box, material)
         this.scene.add(this.test_mesh)
 
+        material.transparent = true
+        material.opacity = 0.3
+
         // 添加边缘线
         const edge = new EdgesGeometry(box)
         const edge_material = new LineBasicMaterial({
-            color: '#000000'
+            color: 'red'
         })
         this.edge_line = new LineSegments(edge, edge_material)
         this.scene.add(this.edge_line)
-
-        console.log(this.edge_line)
     }
 
     _init_scene(): void {

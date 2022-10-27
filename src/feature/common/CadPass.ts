@@ -6,6 +6,8 @@ import { edgesVertexShader } from './EdgesShader/vertex.glsl'
 import { edgesFragmentShader } from './EdgesShader/fragment.glsl'
 import { outLineVertexShader } from './OutLineShader/vertex.glsl'
 import { outLineFragmentShader } from './OutLineShader/fragment.glsl'
+import { addEdgeVertexShader } from './AddEdgeShader/vertex.glsl'
+import { addEdgeFragmentShader } from './AddEdgeShader/fragment.glsl'
 import { CopyShader } from 'three/examples/jsm/shaders/CopyShader'
 type vec2Type = {
     x: number
@@ -27,7 +29,6 @@ export class CadPass extends Pass {
     hiddenEdge: boolean
     // 面深度材质
     meshDepthMaterial: MeshDepthMaterial
-
     renderScene: Scene // 渲染的场景
     renderCamera: OrthographicCamera // 渲染的相机
     singleBuffer: WebGLRenderTarget // 存深度图的buffer 在缓存创建一张图片，我们可以把这张图片当成纹理在几何体上使用
@@ -41,13 +42,15 @@ export class CadPass extends Pass {
     oldClearColor: Color
     oldClearAlpha: any
     oldAutoClear: any
+    addEdgeMaterial: ShaderMaterial
+    multiBuffer: WebGLMultisampleRenderTarget
     constructor(resolution: vec2Type, transparent: boolean = false, colored: boolean = true, visibleEdge: boolean = true, hiddenEdge: boolean = false) {
         super()
         this.enabled = true
         this.needsSwap = false
         this.resolution = resolution ? new Vector2(resolution.x, resolution.y) : new Vector2(256, 256)
         this.textureMatrix = new Matrix4()
-        this.fsQuad = new FullScreenQuad(null)
+        this.fsQuad = new FullScreenQuad()
         this.oldClearColor = new Color()
 
         // 渲染的四个参数 默认透明和不可见边关闭
@@ -81,15 +84,24 @@ export class CadPass extends Pass {
         })
 
         // 创建一个buffer 缓存mesh深度图
-        this.singleBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.singleBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
 
         // 边线材质
         this.tEdgeMaterial = this.getTedgeMaterial()
+
+        // 边线最终输出缓冲
+        this.multiBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.multiBuffer.depthBuffer = false
+        this.multiBuffer.samples = 10
+
+        // 加粗边线材质
+        this.addEdgeMaterial = this.getAddEdgeMaterial()
+        this.addEdgeMaterial.uniforms['texSize'].value.set(this.multiBuffer.width, this.multiBuffer.height)
     }
 
     // 创建轮廓线材质
     createToPoMaterials() {
-        this.topoBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.topoBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
         this.backSideMaterial = this.getBackSideMaterial()
     }
 
@@ -111,7 +123,9 @@ export class CadPass extends Pass {
 
     // topo渲染
     renderTopo(renderer: WebGLRenderer) {
-        this.renderWithBuffer(renderer, this.topoBuffer)
+        this.changeVisible('Mesh', true)
+        this.renderWithBuffer(renderer, this.topoBuffer, null)
+        this.changeVisible('', false)
     }
 
     // 轮廓线渲染
@@ -130,27 +144,33 @@ export class CadPass extends Pass {
     // 本身线渲染
     renderEdge(renderer: WebGLRenderer) {
         renderer.setClearColor(0x000000, 1)
+        renderer.clear()
         this.updateTextureMatrix()
         // 渲染所有mesh
         this.changeVisible('Mesh', true) // 除了mesh其它隐藏
         this.renderWithBuffer(renderer, this.singleBuffer, this.meshDepthMaterial)
         this.changeVisible('', false) //恢复
 
-        // FIXME 渲染线条 暂时注释
+        //  渲染线条 暂时注释
         this.changeVisible('LineSegments', true)
         this.tEdgeMaterial.uniforms['cameraNearFar'].value.set(this.renderCamera.near, this.renderCamera.far)
-        this.tEdgeMaterial.uniforms['topoTexture'].value = this.topoBuffer.texture
         this.tEdgeMaterial.uniforms['depthTexture'].value = this.singleBuffer.texture
         this.tEdgeMaterial.uniforms['textureMatrix'].value = this.textureMatrix
-        // FIXME 这个材质需要修改
-        this.renderWithFs(renderer, this.topoBuffer, this.tEdgeMaterial)
+
+        this.renderWithBuffer(renderer, this.multiBuffer, this.tEdgeMaterial)
+
+        this.addEdgeMaterial.uniforms['topoTexture'].value = this.topoBuffer.texture
+        this.addEdgeMaterial.uniforms['tEdgeTexture'].value = this.multiBuffer.texture
+        this.addEdgeMaterial.uniforms['texSize'].value.set(this.multiBuffer.width, this.multiBuffer.height)
+
+        this.renderWithFs(renderer, this.topoBuffer, this.addEdgeMaterial)
 
         this.changeVisible('', false)
     }
 
     // 改变图元可见性
     changeVisible(type: string, show: boolean) {
-        const objs = this.renderScene.children
+        const objs = this.renderScene.children.filter(item=>item.type === 'Mesh' || item.type === 'LineSegments')
         objs.forEach((item) => {
             if (item.type === type) {
                 item.visible = show
@@ -161,8 +181,8 @@ export class CadPass extends Pass {
     }
 
     // 使用buffer渲染
-    renderWithBuffer(renderer: WebGLRenderer, buffer: WebGLRenderTarget, material?: Material) {
-        material && (this.renderScene.overrideMaterial = material)
+    renderWithBuffer(renderer: WebGLRenderer, buffer: WebGLRenderTarget | null, material: Material | null) {
+        this.renderScene.overrideMaterial = material
         // FIXME 暂时注释
         renderer.setRenderTarget(buffer)
         renderer.clear()
@@ -170,7 +190,7 @@ export class CadPass extends Pass {
     }
 
     // 全屏渲染
-    renderWithFs(renderer: WebGLRenderer, buffer: WebGLRenderTarget, material: ShaderMaterial) {
+    renderWithFs(renderer: WebGLRenderer, buffer: WebGLRenderTarget | null, material: ShaderMaterial) {
         this.fsQuad.material = material
         renderer.setRenderTarget(buffer)
         renderer.clear()
@@ -209,6 +229,23 @@ export class CadPass extends Pass {
         })
     }
 
+    // 获取加粗线材质
+    getAddEdgeMaterial(): ShaderMaterial {
+        return new ShaderMaterial({
+            uniforms: {
+                topoTexture: { value: null },
+                tEdgeTexture: { value: null },
+                texSize: { value: new Vector2(0.5, 0.5) },
+                param: { value: { x: this.transparent, y: this.colored, z: this.visibleEdge, w: this.hiddenEdge } }
+            },
+            vertexShader: addEdgeVertexShader,
+            fragmentShader: addEdgeFragmentShader,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true
+        })
+    }
+
     // 获取轮廓线材质
     getBackSideMaterial(): ShaderMaterial {
         return new ShaderMaterial({
@@ -227,7 +264,7 @@ export class CadPass extends Pass {
     render(renderer: WebGLRenderer) {
         this.setOldData(renderer)
         this.renderTopo(renderer)
-        // this.renderBackSide(renderer)
+        this.renderBackSide(renderer)
         this.renderEdge(renderer)
         this.resetOldData(renderer)
     }

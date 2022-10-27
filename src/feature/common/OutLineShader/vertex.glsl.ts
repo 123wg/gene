@@ -10,11 +10,11 @@ export const outLineVertexShader = `
 
     uniform float outlineThickness;
 
-    vec4 calculateOutline(vec4 pos, vec3 normal, vec4 skinned) {
+    vec4 calculateOutline( vec4 pos, vec3 normal, vec4 skinned ) {
         float thickness = outlineThickness;
         const float ratio = 0.5;
-        vec4 pos2 = projectionMatrix * modelViewMatrix * vec4(skinned.xyz + normal, 1.0);
-        vec4 norm = normalize(pos - pos2);
+        vec4 pos2 = projectionMatrix * modelViewMatrix * vec4( skinned.xyz + normal, 1.0);
+        vec4 norm = normalize( pos - pos2 );
         return pos + norm * thickness * pos.w * ratio;
     }
 
@@ -33,6 +33,7 @@ export const outLineVertexShader = `
         #include <project_vertex>
 
         vec3 outlineNormal = - objectNormal;
+        
         gl_Position = calculateOutline( gl_Position, outlineNormal , vec4(transformed, 1.0) );
 
         #include <logdepthbuf_vertex>
