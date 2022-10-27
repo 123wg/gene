@@ -86,6 +86,8 @@ export const addEdgeFragmentShader = `
 
     void main(){
         vec4 finalColor = texture2D(topoTexture, vUv);
+        finalColor = addEdge(finalColor); // 使用加粗线，暂时注释
+        // vec4 edgeColor = texture2D(tEdgeTexture, vUv);
         gl_FragColor = finalColor;
     }
 `

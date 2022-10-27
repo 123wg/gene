@@ -170,7 +170,7 @@ export class CadPass extends Pass {
 
     // 改变图元可见性
     changeVisible(type: string, show: boolean) {
-        const objs = this.renderScene.children.filter(item=>item.type === 'Mesh' || item.type === 'LineSegments')
+        const objs = this.renderScene.children.filter((item) => item.type === 'Mesh' || item.type === 'LineSegments')
         objs.forEach((item) => {
             if (item.type === type) {
                 item.visible = show

@@ -21,8 +21,9 @@ export class View implements IView {
     renderer!: WebGLRenderer
 
     light!: DirectionalLight
-    test_mesh: Mesh
-    edge_line: LineSegments
+    // FIXME 测试数据量比较大
+    // test_mesh: Mesh
+    // edge_line: LineSegments
 
     composer: EffectComposer // 后期处理管理器
     cadPass: CadPass
@@ -58,29 +59,31 @@ export class View implements IView {
     // 创建mesh
     create_mesh() {
         // const box = new TorusKnotGeometry(8, 3, 256, 32, 2, 3)
-        const box = new BoxGeometry(20, 20, 20)
         const material = new MeshStandardMaterial({
             color: '#0fffa0',
             side: 2
         })
-        this.test_mesh = new Mesh(box, material)
-        this.scene.add(this.test_mesh)
+        for (let i = 0; i < 10; i += 1) {
+            const box = new BoxGeometry(20, 20, 20)
+            box.translate(i * 10, i * 10, i * 10)
+            const test_mesh = new Mesh(box, material)
+            this.scene.add(test_mesh)
+            material.transparent = true
+            material.opacity = 0.3
 
-        material.transparent = true
-        material.opacity = 0.3
-
-        // 添加边缘线
-        const edge = new EdgesGeometry(box)
-        const edge_material = new LineBasicMaterial({
-            color: 'red'
-        })
-        this.edge_line = new LineSegments(edge, edge_material)
-        this.scene.add(this.edge_line)
+            // 添加边缘线
+            const edge = new EdgesGeometry(box)
+            const edge_material = new LineBasicMaterial({
+                color: 'black'
+            })
+            const edge_line = new LineSegments(edge, edge_material)
+            this.scene.add(edge_line)
+        }
     }
 
     _init_scene(): void {
         this.scene = new Scene()
-        this.scene.background = new Color('hsl(195, 20%, 90%)')
+        // this.scene.background = new Color('hsl(195, 20%, 90%)')
     }
 
     _init_camera(): void {
