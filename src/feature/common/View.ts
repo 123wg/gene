@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
-import { BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
+import { AxesHelper, BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
@@ -53,7 +53,9 @@ export class View implements IView {
         this._init_control()
         this._on_resize()
         this.create_mesh()
-        this.init_composer()
+        setTimeout(() => {
+            this.init_composer()
+        }, 3000)
     }
 
     // 创建mesh
@@ -69,7 +71,7 @@ export class View implements IView {
             const test_mesh = new Mesh(box, material)
             this.scene.add(test_mesh)
             material.transparent = true
-            material.opacity = 0.3
+            material.opacity = 0
 
             // 添加边缘线
             const edge = new EdgesGeometry(box)
@@ -79,6 +81,9 @@ export class View implements IView {
             const edge_line = new LineSegments(edge, edge_material)
             this.scene.add(edge_line)
         }
+
+        const axis = new AxesHelper(200)
+        this.scene.add(axis)
     }
 
     _init_scene(): void {
@@ -125,7 +130,7 @@ export class View implements IView {
         })
         this.renderer.localClippingEnabled = true
 
-        this.renderer.setClearColor(0xeeeeee)
+        this.renderer.setClearColor(0xeeeeee, 1)
         this.renderer.setSize(width, height)
         this.dom.appendChild(this.renderer.domElement)
     }
