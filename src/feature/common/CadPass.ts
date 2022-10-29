@@ -48,6 +48,7 @@ export class CadPass extends Pass {
     devicePixelRatio!:number
     originBuffer!: WebGLRenderTarget
     visibleCache:Map<number,boolean> = new Map()
+    view!: IView
     constructor(resolution: vec2Type, transparent: boolean = false, colored: boolean = true, visibleEdge: boolean = true, hiddenEdge: boolean = false) {
         super()
         this.enabled = true
@@ -89,14 +90,14 @@ export class CadPass extends Pass {
         })
 
         // 创建一个buffer 缓存mesh深度图
-        this.singleBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.singleBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
         this.singleBuffer.stencilBuffer = true
 
         // 边线材质
         this.tEdgeMaterial = this.getTedgeMaterial()
 
         // 边线最终输出缓冲
-        this.multiBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.multiBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
         this.multiBuffer.stencilBuffer = true
         this.multiBuffer.depthBuffer = false
         // this.multiBuffer.samples = 10
@@ -108,12 +109,12 @@ export class CadPass extends Pass {
 
     // 创建轮廓线材质
     createToPoMaterials() {
-        this.topoBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y, pars)
+        this.topoBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y, pars)
         this.topoBuffer.stencilBuffer = true
         this.backSideMaterial = this.getBackSideMaterial()
 
         // 原始贴图
-        this.originBuffer = new WebGLRenderTarget(this.resolution.x, this.resolution.y,pars)
+        this.originBuffer = new WebGLMultisampleRenderTarget(this.resolution.x, this.resolution.y,pars)
         this.originBuffer.stencilBuffer = true
     }
 
@@ -133,33 +134,47 @@ export class CadPass extends Pass {
         })
     }
 
-    // 将场景中所有物体先渲染一边保存
     renderOrigin(renderer:WebGLRenderer){
+    // 将场景中所有物体先渲染一边保存
         this.renderWithBuffer(renderer, this.originBuffer, null)
     }
 
     // topo渲染
     renderTopo(renderer: WebGLRenderer) {
-        // this.changeVisible('Mesh', true)
+        this.changeVisible('Mesh', true)
         this.renderWithBuffer(renderer, this.topoBuffer, null)
-        // this.changeVisible('', false)
+        this.recoverVisible()
     }
 
-    // 轮廓线渲染
+    // 轮廓线渲染 
     renderBackSide(renderer: WebGLRenderer) {
         if (this.visibleEdge && !this.transparent) {
             const currentSceneBackground = this.renderScene.background
             this.renderScene.background = null
             this.renderScene.overrideMaterial = this.backSideMaterial
-            this.changeVisible('Mesh', true) 
+            
+            this.backSideMaterial.clippingPlanes = [this.view.po_plane]
+            this.changeVisible('Mesh', true)
             // renderer.setRenderTarget(this.originBuffer)
             // renderer.clear()
             renderer.render(this.renderScene, this.renderCamera)
-            // this.renderWithBuffer(renderer,this.originBuffer,this.backSideMaterial)
+            // this.renderWithBuffer(renderer, this.topoBuffer,this.backSideMaterial)
+            // this.renderWithBuffer(renderer,this.topoBuffer,this.backSideMaterial)
             // this.changeVisible('', false)
             this.recoverVisible()
             this.renderScene.background = currentSceneBackground
         }
+    }
+
+    // 其他物体渲染
+    renderOther(renderer:WebGLRenderer) {
+        this.changeVisible('other',true)
+        this.renderScene.overrideMaterial = null
+        renderer.setRenderTarget(this.topoBuffer)
+        renderer.render(this.renderScene,this.renderCamera)
+        // 这里不清空 影响性能，清空后实现不了效果
+        // renderer.clear()
+        this.recoverVisible()
     }
 
     // 本身线渲染
@@ -184,7 +199,7 @@ export class CadPass extends Pass {
         this.addEdgeMaterial.uniforms['tEdgeTexture'].value = this.multiBuffer.texture
         this.addEdgeMaterial.uniforms['texSize'].value.set(this.multiBuffer.width, this.multiBuffer.height)
 
-        this.renderWithFs(renderer, this.originBuffer, this.addEdgeMaterial)
+        this.renderWithFs(renderer, this.topoBuffer, this.addEdgeMaterial)
 
         this.changeVisible('', false)
     }
@@ -206,7 +221,14 @@ export class CadPass extends Pass {
         const exceptIds:Array<number> = []
         if(type === 'Mesh'){
             this.renderScene.children.forEach(item=>{
-                if(item.type === 'plane_helper'){
+                if(item.type === 'plane_helper' || item.type === 'LineSegments'){
+                    this.visibleCache.set(item.id,item.visible)
+                    item.visible = false
+                }
+            })
+        }else if(type === 'other') {
+            this.renderScene.children.forEach(item=>{
+                if(item.type === 'Mesh' || item.type === 'plane_helper'){
                     this.visibleCache.set(item.id,item.visible)
                     item.visible = false
                 }
@@ -299,11 +321,7 @@ export class CadPass extends Pass {
             vertexShader: outLineVertexShader,
             fragmentShader: outLineFragmentShader,
             side: BackSide,
-
-            // FIXME 测试颜色融合 1029
-            depthTest: false,
-            depthWrite: false,
-            transparent: true
+            clipping:true // 开启裁剪面
         })
     }
 
@@ -312,14 +330,17 @@ export class CadPass extends Pass {
         // 将场景所有东西渲染一变
         this.setOldData(renderer)
         
-        // this.renderBackSide(renderer)
-        this.renderOrigin(renderer)
+        this.renderTopo(renderer)
+        this.renderBackSide(renderer)
         
         
-        // this.renderTopo(renderer)
-        
-        // this.renderEdge(renderer)
+        this.renderOther(renderer)
+
         this.resetOldData(renderer)
+
+        // FIXME 暂时注释
+        // this.renderOrigin(renderer)
+        // this.renderEdge(renderer)
     }
 
     setOldData(renderer: WebGLRenderer) {
@@ -336,12 +357,14 @@ export class CadPass extends Pass {
         renderer.setClearColor(this.oldClearColor, this.oldClearAlpha)
         renderer.autoClear = this.oldAutoClear
         // renderer.clear()
-        this.copyUniforms['tDiffuse'].value = this.originBuffer.texture
+        this.copyUniforms['tDiffuse'].value = this.topoBuffer.texture
         this.renderWithFs(renderer, null, this.materialCopy)
+        
     }
 
     // 设置场景
     setScene(view: IView) {
+        this.view = view
         this.renderScene = view.scene
         this.renderCamera = view.camera
     }

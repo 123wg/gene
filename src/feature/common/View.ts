@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
-import { AxesHelper, BoxBufferGeometry, BoxGeometry, BufferGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshStandardMaterial, MOUSE, OrthographicCamera, Plane, PlaneBufferGeometry, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
+import { AxesHelper, BoxBufferGeometry, BoxGeometry, BufferGeometry, Color, ConeBufferGeometry, CylinderBufferGeometry, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshStandardMaterial, MOUSE, OrthographicCamera, Plane, PlaneBufferGeometry, Scene, TorusKnotBufferGeometry, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
@@ -28,8 +28,9 @@ export class View implements IView {
 
     composer!: EffectComposer // 后期处理管理器
     cadPass!: CadPass
-    box_mesh!: Mesh<BoxBufferGeometry, MeshStandardMaterial>
+    box_mesh!: Mesh<any, MeshStandardMaterial>
     line_mesh!: LineSegments<EdgesGeometry, LineBasicMaterial>
+    po_plane!: Plane
     
 
     constructor() {
@@ -64,7 +65,7 @@ export class View implements IView {
     // 创建测试物体
     create_obj() {
         // 正方体
-        const boxGeo = new BoxBufferGeometry(20,20,20)
+        const boxGeo = new BoxGeometry(20,20,20)
         const boxMaterial = new MeshStandardMaterial({
             color:'#3cc48d',
             side:2
@@ -83,7 +84,6 @@ export class View implements IView {
 
         this.scene.add(this.box_mesh)
         this.scene.add(this.line_mesh)
-        
     }
 
 
@@ -123,6 +123,7 @@ export class View implements IView {
         // 物体添加切面
         this.box_mesh.material.clippingPlanes = [plane]
         this.line_mesh.material.clippingPlanes = [plane]
+        this.po_plane = plane
     }
 
     // 创建切口

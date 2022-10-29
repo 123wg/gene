@@ -2,7 +2,8 @@ import type { DirectionalLight, OrthographicCamera, Scene, WebGLRenderer } from 
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import type { ISceneSize } from './ISceneSize'
 export interface IView {
-    /**场景*/
+    po_plane: any
+    /**场景*/ 
     scene: Scene
 
     /**相机*/
