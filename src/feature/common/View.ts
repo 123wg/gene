@@ -7,10 +7,11 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
-import { AxesHelper, BoxGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, MOUSE, OrthographicCamera, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
+import { AxesHelper, BoxBufferGeometry, BoxGeometry, BufferGeometry, Color, DirectionalLight, EdgesGeometry, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshStandardMaterial, MOUSE, OrthographicCamera, Plane, PlaneBufferGeometry, Scene, TorusKnotGeometry, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
+import * as THREE from 'three'
 export class View implements IView {
     scene!: Scene
 
@@ -25,8 +26,11 @@ export class View implements IView {
     // test_mesh: Mesh
     // edge_line: LineSegments
 
-    composer: EffectComposer // 后期处理管理器
-    cadPass: CadPass
+    composer!: EffectComposer // 后期处理管理器
+    cadPass!: CadPass
+    box_mesh!: Mesh<BoxBufferGeometry, MeshStandardMaterial>
+    line_mesh!: LineSegments<EdgesGeometry, LineBasicMaterial>
+    
 
     constructor() {
         this._init()
@@ -52,39 +56,115 @@ export class View implements IView {
         this._render()
         this._init_control()
         this._on_resize()
-        this.create_mesh()
-        setTimeout(() => {
-            this.init_composer()
-        }, 3000)
+        this.create_obj()
+        this.create_clipplan()
+        this.init_composer()
     }
 
-    // 创建mesh
-    create_mesh() {
-        // const box = new TorusKnotGeometry(8, 3, 256, 32, 2, 3)
-        const material = new MeshStandardMaterial({
-            color: '#0fffa0',
-            side: 2
+    // 创建测试物体
+    create_obj() {
+        // 正方体
+        const boxGeo = new BoxBufferGeometry(20,20,20)
+        const boxMaterial = new MeshStandardMaterial({
+            color:'#3cc48d',
+            side:2
         })
-        for (let i = 0; i < 10; i += 1) {
-            const box = new BoxGeometry(20, 20, 20)
-            box.translate(i * 10, i * 10, i * 10)
-            const test_mesh = new Mesh(box, material)
-            this.scene.add(test_mesh)
-            material.transparent = true
-            material.opacity = 0
+        this.box_mesh = new Mesh(boxGeo, boxMaterial)
+        // this.box_mesh.visible = false
+        // this.box_mesh.material.transparent = true
+        // this.box_mesh.material.opacity = 0
+        // 边框 
+        const lineMaterial = new LineBasicMaterial({
+            color:'#000000'
+        })
+        const lineGeo = new EdgesGeometry(boxGeo)
+        this.line_mesh = new LineSegments(lineGeo, lineMaterial)
+        // this.line_mesh.visible = false
 
-            // 添加边缘线
-            const edge = new EdgesGeometry(box)
-            const edge_material = new LineBasicMaterial({
-                color: 'black'
-            })
-            const edge_line = new LineSegments(edge, edge_material)
-            this.scene.add(edge_line)
-        }
-
-        const axis = new AxesHelper(200)
-        this.scene.add(axis)
+        this.scene.add(this.box_mesh)
+        this.scene.add(this.line_mesh)
+        
     }
+
+
+    // 创建切面
+    create_clipplan() {
+        
+        // 剖切面
+        const plane_normal = new Vector3(0,0,-1)
+        const plane = new Plane(plane_normal, 0)
+
+        // 剖切辅助平面
+        const plane_helper_gro = new PlaneBufferGeometry(80,80)
+        const plane_material = new MeshBasicMaterial({
+            color:'pink',
+            stencilWrite: true,
+            stencilRef: 0,
+            stencilFunc: THREE.NotEqualStencilFunc,
+            stencilFail: THREE.ReplaceStencilOp,
+            stencilZFail: THREE.ReplaceStencilOp,
+            stencilZPass: THREE.ReplaceStencilOp,
+        })
+        const plane_helper = new Mesh(plane_helper_gro,plane_material)
+        plane_helper.type = 'plane_helper'
+        plane_helper.renderOrder = 1.1
+        plane_helper.onAfterRender = ( renderer )=>{
+            renderer.clearStencil();
+        };
+        this.scene.add(plane_helper)
+        
+        // 模型开启正面和背面渲染 写入模板缓冲
+        if(this.box_mesh.visible) {
+            const box_geo = this.box_mesh.geometry
+            const stencilGroup = this.createPlaneStencilGroup(box_geo,plane,1)
+            this.scene.add(stencilGroup)
+        }
+        
+        // 物体添加切面
+        this.box_mesh.material.clippingPlanes = [plane]
+        this.line_mesh.material.clippingPlanes = [plane]
+    }
+
+    // 创建切口
+    createPlaneStencilGroup( geometry:BufferGeometry, plane:Plane, renderOrder:number ) {
+        const group = new THREE.Group();
+        const baseMat = new THREE.MeshBasicMaterial();
+        baseMat.depthWrite = false;
+        baseMat.depthTest = false;
+        baseMat.colorWrite = false;
+        baseMat.stencilWrite = true;
+        baseMat.stencilFunc = THREE.AlwaysStencilFunc;
+
+        // back faces
+        const mat0 = baseMat.clone();
+        mat0.side = THREE.BackSide;
+        mat0.clippingPlanes = [ plane ];
+        mat0.stencilFail = THREE.IncrementWrapStencilOp;
+        mat0.stencilZFail = THREE.IncrementWrapStencilOp;
+        mat0.stencilZPass = THREE.IncrementWrapStencilOp;
+
+        const mesh0 = new Mesh( geometry, mat0 );
+        mesh0.renderOrder = renderOrder;
+        group.add( mesh0 );
+
+        // front faces
+        const mat1 = baseMat.clone();
+        mat1.side = THREE.FrontSide;
+        mat1.clippingPlanes = [ plane ];
+        mat1.stencilFail = THREE.DecrementWrapStencilOp;
+        mat1.stencilZFail = THREE.DecrementWrapStencilOp;
+        mat1.stencilZPass = THREE.DecrementWrapStencilOp;
+
+        const mesh1 = new Mesh( geometry, mat1 );
+        mesh1.renderOrder = renderOrder;
+
+        group.name = 'plane_group'
+        group.add( mesh1 );
+
+        return group;
+
+    }
+
 
     _init_scene(): void {
         this.scene = new Scene()
