@@ -331,10 +331,10 @@ export class CadPass extends Pass {
         this.setOldData(renderer)
         
         this.renderTopo(renderer)
-        this.renderBackSide(renderer)
+        // this.renderBackSide(renderer)
         
         
-        this.renderOther(renderer)
+        // this.renderOther(renderer)
 
         this.resetOldData(renderer)
 

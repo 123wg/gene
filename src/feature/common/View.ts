@@ -82,8 +82,16 @@ export class View implements IView {
         this.line_mesh = new LineSegments(lineGeo, lineMaterial)
         // this.line_mesh.visible = false
 
+
+        // 坐标轴
+        const axis_helper = new AxesHelper(50)
+
+
+
         this.scene.add(this.box_mesh)
         this.scene.add(this.line_mesh)
+        this.scene.add(axis_helper)
+        
     }
 
 
