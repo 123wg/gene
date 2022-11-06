@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { Profile } from '@/feature/common/Profile'
 import { View } from '@/feature/common/View'
 import { onMounted } from 'vue'
 
 onMounted(() => {
     const view = new View()
     ;(window as any).view = view
+    // 初始化剖切
+    const profile = new Profile(view)
 })
 </script>
 
