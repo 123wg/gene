@@ -36,12 +36,13 @@ import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 export class View implements IView {
     scene!: Scene
 
     camera!: OrthographicCamera
 
-    controls!: TrackballControls
+    controls!: OrbitControls
 
     renderer!: WebGLRenderer
 
@@ -212,17 +213,14 @@ export class View implements IView {
     }
 
     _init_control(): void {
-        this.controls = new TrackballControls(this.camera, this.renderer.domElement)
-        // this.controls.enableDamping = true // 开启惯性
-        // this.controls.dampingFactor = 0.8
-        // this.controls.mouseButtons = {
-        //     LEFT: 555,
-        //     MIDDLE: MOUSE.ROTATE,
-        //     RIGHT: MOUSE.PAN
-        // }
-        // this.controls.rotateSpeed = 5;
-        // this.controls.zoomSpeed = 1.2;
-        this.controls.panSpeed = 1;
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+        this.controls.enableDamping = true // 开启惯性
+        this.controls.dampingFactor = 0.8
+        this.controls.mouseButtons = {
+            LEFT: 555,
+            MIDDLE: THREE.MOUSE.ROTATE,
+            RIGHT: THREE.MOUSE.PAN
+        }
         this.controls.addEventListener('change', () => {
             const cameraPos = this.camera.position
             this.light.position.set(cameraPos.x, cameraPos.y, cameraPos.z)

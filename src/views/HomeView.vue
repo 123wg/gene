@@ -8,6 +8,7 @@ onMounted(() => {
     ;(window as any).view = view
     // 初始化剖切
     const profile = new Profile(view)
+    window.profile = profile
 })
 </script>
 
