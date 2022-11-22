@@ -82,7 +82,7 @@ export class View implements IView {
         this._init_control()
         this._on_resize()
         this._init_axis()
-        // this.create_obj()
+        this.create_obj()
         // this.create_clipplan()
         // this.init_composer()
     }
@@ -93,7 +93,12 @@ export class View implements IView {
         const boxGeo = new BoxGeometry(20, 20, 20)
         const boxMaterial = new MeshStandardMaterial({
             color: '#3cc48d',
-            side: 2
+            side: 0,
+            // polygonOffset:true,
+            // clipIntersection:true,
+            // polygonOffsetFactor: 0,
+            // polygonOffsetUnits: 0.5
+
         })
         this.box_mesh = new Mesh(boxGeo, boxMaterial)
         // this.box_mesh.visible = false
@@ -118,8 +123,8 @@ export class View implements IView {
     // 创建切面
     create_clipplan() {
         // 剖切面
-        const plane_normal = new Vector3(0, 0, -1)
-        const plane = new Plane(plane_normal, 0)
+        const plane_normal = new Vector3(0, 1, 0)
+        const plane = new Plane(plane_normal, 10.001)
 
         // 剖切辅助平面
         const plane_helper_gro = new PlaneBufferGeometry(80, 80)
@@ -138,7 +143,7 @@ export class View implements IView {
         plane_helper.onAfterRender = (renderer) => {
             renderer.clearStencil()
         }
-        this.scene.add(plane_helper)
+        // this.scene.add(plane_helper)
 
         // 模型开启正面和背面渲染 写入模板缓冲
         if (this.box_mesh.visible) {
@@ -232,7 +237,8 @@ export class View implements IView {
         this.renderer = new WebGLRenderer({
             antialias: true,
             alpha: true,
-            stencil: true
+            stencil: true,
+            logarithmicDepthBuffer:true
         })
         this.renderer.localClippingEnabled = true
 
