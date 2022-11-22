@@ -1,3 +1,5 @@
+import { CustomOutlinePass } from './CustomOutlinePass';
+import { FindSurfaces } from './FindSurfaces';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 /**
  * @Description: 场景类
@@ -15,6 +17,7 @@ import {
     Color,
     ConeBufferGeometry,
     CylinderBufferGeometry,
+    DepthTexture,
     DirectionalLight,
     EdgesGeometry,
     LineBasicMaterial,
@@ -30,13 +33,19 @@ import {
     TorusKnotBufferGeometry,
     TorusKnotGeometry,
     Vector3,
-    WebGLRenderer
+    WebGLRenderer,
+    WebGLRenderTarget
 } from 'three'
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls'
 import { CadPass } from './CadPass'
 import { Vector2 } from 'three'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { render } from 'vue'
+import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass'
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
+
 export class View implements IView {
     scene!: Scene
 
@@ -85,39 +94,98 @@ export class View implements IView {
         this.create_obj()
         // this.create_clipplan()
         // this.init_composer()
+
+        // 测试通过faceId生成轮廓线
+        this.test_outline_facceId()
+    }
+
+
+    test_outline_facceId(){
+        const renderer = this.renderer
+        const depthTexture = new DepthTexture(
+            this.size.width,
+            this.size.height
+        );
+        const renderTarget = new WebGLRenderTarget(
+            window.innerWidth,
+            window.innerHeight,
+            {
+                depthTexture: depthTexture,
+                depthBuffer: true,
+            }
+        );
+        this.composer = new EffectComposer(renderer,renderTarget)
+        const pass = new RenderPass(this.scene,this.camera)
+        this.composer.addPass(pass)
+
+        // Outline pass.
+        const customOutline = new CustomOutlinePass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            this.scene,
+            this.camera
+        );
+        this.composer.addPass(customOutline);
+
+        // Antialias pass.
+        const effectFXAA = new ShaderPass(FXAAShader);
+        effectFXAA.uniforms["resolution"].value.set(
+            1 / window.innerWidth,
+            1 / window.innerHeight
+        );
+        this.composer.addPass(effectFXAA);
+        const surfaceFinder = new FindSurfaces();
+        surfaceFinder.surfaceId = 0;
+        this.scene.traverse((node) => {
+            if (node.type == "Mesh") {
+                const colorsTypedArray = surfaceFinder.getSurfaceIdAttribute(node);
+                (node as any).geometry.setAttribute(
+                    "color",
+                    new THREE.BufferAttribute(colorsTypedArray, 4)
+                );
+            }
+        });
+        customOutline.updateMaxSurfaceId(surfaceFinder.surfaceId + 1);
     }
 
     // 创建测试物体
     create_obj() {
         // 正方体
-        const boxGeo = new BoxGeometry(20, 20, 20)
-        const boxMaterial = new MeshStandardMaterial({
-            color: '#3cc48d',
-            side: 0,
-            // polygonOffset:true,
-            // clipIntersection:true,
-            // polygonOffsetFactor: 0,
-            // polygonOffsetUnits: 0.5
+        // const boxGeo = new BoxGeometry(20, 20, 20)
+        // const boxMaterial = new MeshStandardMaterial({
+        //     color: '#3cc48d',
+        //     side: 0,
+        //     // polygonOffset:true,
+        //     // clipIntersection:true,
+        //     // polygonOffsetFactor: 0,
+        //     // polygonOffsetUnits: 0.5
 
-        })
-        this.box_mesh = new Mesh(boxGeo, boxMaterial)
-        // this.box_mesh.visible = false
+        // })
+        // this.box_mesh = new Mesh(boxGeo, boxMaterial)
+        // // this.box_mesh.visible = false
         // this.box_mesh.material.transparent = true
         // this.box_mesh.material.opacity = 0
-        // 边框
-        const lineMaterial = new LineBasicMaterial({
-            color: '#000000'
-        })
-        const lineGeo = new EdgesGeometry(boxGeo)
-        this.line_mesh = new LineSegments(lineGeo, lineMaterial)
+        // // 边框
+        // const lineMaterial = new LineBasicMaterial({
+        //     color: '#000000'
+        // })
+        // const lineGeo = new EdgesGeometry(boxGeo)
+        // this.line_mesh = new LineSegments(lineGeo, lineMaterial)
         // this.line_mesh.visible = false
 
-        // 坐标轴
-        const axis_helper = new AxesHelper(50)
+        // // 坐标轴
+        // const axis_helper = new AxesHelper(50)
 
-        this.scene.add(this.box_mesh)
-        this.scene.add(this.line_mesh)
-        this.scene.add(axis_helper)
+        // this.scene.add(this.box_mesh)
+        // this.scene.add(this.line_mesh)
+        // this.scene.add(axis_helper)
+
+
+        const geo = new TorusKnotBufferGeometry(8, 3, 256, 32, 2, 3)
+        const material = new MeshBasicMaterial({
+            color:'red'
+        })
+        const mesh = new Mesh(geo,material)
+        this.scene.add(mesh)
     }
 
     // 创建切面
