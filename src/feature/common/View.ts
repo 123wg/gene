@@ -10,7 +10,6 @@ import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
 import {
     AxesHelper,
-    BoxBufferGeometry,
     BoxGeometry,
     BufferGeometry,
     Color,
