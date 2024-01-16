@@ -6,7 +6,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
  * @Author: wanggang
  * @Date: 2022-10-23 18:20:34
  **/
-
 import type { ISceneSize } from '@/interface/ISceneSize'
 import type { IView } from '@/interface/IView'
 import {
@@ -45,6 +44,7 @@ import { render } from 'vue'
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass'
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
+import { damp } from 'three/src/math/MathUtils';
 
 export class View implements IView {
     scene!: Scene
@@ -290,8 +290,8 @@ export class View implements IView {
         this.controls.enableDamping = true // 开启惯性
         this.controls.dampingFactor = 0.8
         this.controls.mouseButtons = {
-            LEFT: 555,
-            MIDDLE: THREE.MOUSE.ROTATE,
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.PAN,
             RIGHT: THREE.MOUSE.PAN
         }
         this.controls.addEventListener('change', () => {
