@@ -58,24 +58,22 @@ export class GScene  {
         this.controls = new TrackballControls(this.camera,this.renderer.domElement)
         this.controls.rotateSpeed = 4.5;
         this.controls.panSpeed = 3.95;
-        // this.controls.dynamicDampingFactor = 0.8;
-        // this.controls.mouseButtons = {
-        //     LEFT:MOUSE.PAN,
-        //     // fixme 可能会有问题
-        //     MIDDLE:MOUSE.DOLLY,
-        //     RIGHT:MOUSE.ROTATE
-        // }
+        this.controls.addEventListener('change',()=>{
+            const cameraPos = this.camera.position
+            this.light.position.copy(cameraPos)
+        })
     }
 
     initLight(){
-        this.light = new DirectionalLight(0xffffff,0.5)
-        this.light.position.set(100,0,100)
+        this.light = new DirectionalLight(0xffffff,0.8)
+        this.light.position.copy(this.camera.position)
         this.scene.add(this.light)
     }
 
     animate(){
         requestAnimationFrame(this.animate.bind(this))
         if(this.controls) this.controls.update()
+        this.renderer.setRenderTarget(null)
         this.renderer.render(this.scene,this.camera)
     }
 
